@@ -3,7 +3,7 @@ import { defineConfig } from '@apps-in-toss/web-framework/config';
 export default defineConfig({
   appName: 'nyangnyang', // 콘솔에 등록할/등록한 앱의 영문 고유이름
   brand: {
-    displayName: '우당탕탕 냥냥펀치',
+    displayName: '냥냥펀치',
     primaryColor: '#FBAF00',
     icon: '',
   },
