@@ -29,16 +29,23 @@ export const DeviceViewport: React.FC<DeviceViewportProps> = ({ children }) => {
     initializeInsets();
 
     // 2. 값 변경 구독
-    const subscription = SafeAreaInsets.subscribe({
-      onEvent: (newInsets) => {
-        setInsets(newInsets);
-      }
-    });
+    let subscription: any = null;
+    try {
+      subscription = SafeAreaInsets.subscribe({
+        onEvent: (newInsets) => {
+          setInsets(newInsets);
+        }
+      });
+    } catch (e) {
+      console.warn('SafeAreaInsets 구독 실패 (브라우저 환경일 수 있음):', e);
+    }
 
     return () => {
       // 구독 해제 (함수 호출 형태가 아닐 경우 대비)
       if (typeof subscription === 'function') {
         subscription();
+      } else if (subscription && subscription.remove) {
+        subscription.remove();
       } else if (subscription && 'unsubscribe' in subscription) {
         // @ts-ignore
         subscription.unsubscribe();

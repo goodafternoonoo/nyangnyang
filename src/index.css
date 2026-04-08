@@ -24,7 +24,8 @@ body {
 }
 
 #font-preload {
-    font-family: 'OngleipParkDahyeon';
     position: absolute;
     visibility: hidden;
 }
+
+#font-preload .f1 { font-family: 'OngleipParkDahyeon'; }
