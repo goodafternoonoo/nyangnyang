@@ -6,6 +6,7 @@ export const upgradeConfig = [
 ];
 
 export const globalState = {
+  uid: null as string | null,
   coins: 0,
   upgrades: { hp: 0, speed: 0, damage: 0, magnet: 0 } as Record<string, number>
 };

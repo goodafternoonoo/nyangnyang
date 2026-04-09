@@ -21,6 +21,7 @@ export async function loginAnonymously() {
   if (!useFirebase || !auth) return null;
   try {
     const cred = await signInAnonymously(auth);
+    globalState.uid = cred.user.uid;
     return cred.user;
   } catch (e) {
     console.error("Firebase Login Failed", e);
@@ -28,22 +29,26 @@ export async function loginAnonymously() {
   }
 }
 
-export async function loadGameData(uid: string) {
-  if (!useFirebase || !db) return;
-  const docRef = doc(db, 'artifacts', appId, 'users', uid, 'savedata', 'progress');
+export async function loadGameData(uid?: string) {
+  const targetUid = uid || globalState.uid;
+  if (!useFirebase || !db || !targetUid) return;
+  const docRef = doc(db, 'artifacts', appId, 'users', targetUid, 'savedata', 'progress');
   try {
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       const data = docSnap.data();
       if (data.coins !== undefined) globalState.coins = data.coins;
-      if (data.upgrades !== undefined) globalState.upgrades = data.upgrades;
+      if (data.upgrades !== undefined) globalState.upgrades = { ...globalState.upgrades, ...data.upgrades };
+      return true;
     }
   } catch (e) { console.error("Data Load Failed:", e); }
+  return false;
 }
 
-export async function saveGameData(uid: string) {
-  if (!useFirebase || !db) return;
-  const docRef = doc(db, 'artifacts', appId, 'users', uid, 'savedata', 'progress');
+export async function saveGameData(uid?: string) {
+  const targetUid = uid || globalState.uid;
+  if (!useFirebase || !db || !targetUid) return;
+  const docRef = doc(db, 'artifacts', appId, 'users', targetUid, 'savedata', 'progress');
   try {
     await setDoc(docRef, { coins: globalState.coins, upgrades: globalState.upgrades }, { merge: true });
   } catch (e) { console.error("Data Save Failed:", e); }

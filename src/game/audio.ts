@@ -1,9 +1,14 @@
 // ---------------------------------------------------------
 // 사운드 생성기 (Web Audio API)
 // ---------------------------------------------------------
-const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+export let audioCtx: AudioContext;
+
+export function initAudioContext(ctx: any) {
+  if (!audioCtx) audioCtx = ctx;
+}
 
 function playSound(freq: number, type: OscillatorType, duration: number, volume = 0.1, slide = 0) {
+  if (!audioCtx) return;
   if (audioCtx.state === 'suspended') audioCtx.resume();
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
@@ -43,6 +48,25 @@ export const SFX = {
   },
   coin: () => playSound(1200, 'sine', 0.05, 0.1, 100),
   buy: () => playSound(1000, 'sine', 0.1, 0.1, 300)
+};
+
+import { MusicManager } from './ProceduralAudio';
+
+export const BGM = {
+  playLobby: () => {
+    resumeAudio();
+    MusicManager.startLobby();
+  },
+  playGame: () => {
+    resumeAudio();
+    MusicManager.startGame();
+  },
+  stop: () => {
+    MusicManager.stop();
+  },
+  setVolume: (v: number) => {
+    MusicManager.setVolume(v);
+  }
 };
 
 export function resumeAudio() {

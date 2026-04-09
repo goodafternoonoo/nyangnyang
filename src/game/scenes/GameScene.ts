@@ -1,7 +1,7 @@
 // @ts-nocheck
 import Phaser from 'phaser';
 import { globalState } from '../state';
-import { SFX, resumeAudio } from '../audio';
+import { SFX, BGM, resumeAudio, initAudioContext } from '../audio';
 import { saveGameData } from '../firebase';
 
 export default class GameScene extends Phaser.Scene {
@@ -41,6 +41,12 @@ export default class GameScene extends Phaser.Scene {
     }
 
     create() {
+        // 오디오 시스템 초기화 (Phaser의 컨텍스트 공유)
+        if ((this.sound as any).context) {
+            initAudioContext((this.sound as any).context);
+        }
+
+        BGM.playGame();
         this.initGameState();
 
         this.physics.world.setBounds(0, 0, 3000, 3000);
@@ -72,6 +78,7 @@ export default class GameScene extends Phaser.Scene {
         this.events.once('shutdown', () => {
             this.input.removeAllListeners();
             this.scale.removeAllListeners();
+            BGM.stop();
         });
     }
 
@@ -505,9 +512,11 @@ export default class GameScene extends Phaser.Scene {
         this.isPaused = true; this.physics.pause(); SFX.levelUp();
         this.isDragging = false; this.joystickBase.setVisible(false); this.joystickThumb.setVisible(false);
         let cam = this.cameras.main;
+        
+        // 메인 컨테이너 (시각 요소용)
         let main = this.add.container(cam.centerX, cam.centerY).setDepth(2000).setScrollFactor(0);
-        let bg = this.add.rectangle(0, 0, cam.width, cam.height, 0x000000, 0.75).setInteractive();
-        let title = this.add.text(0, -230, '🐾 레벨 업! 능력을 고르라냥 🐾', { fontFamily: 'OngleipParkDahyeon', fontSize: '36px', color: '#FFD700' }).setOrigin(0.5);
+        let bg = this.add.rectangle(0, 0, cam.width, cam.height, 0x000000, 0.75); // .setInteractive() 제거 (방해 요소 제거)
+        let title = this.add.text(0, -230, '🐾 레벨 업! 능력을 고르라냥 🐾', { fontFamily: 'OngleipParkDahyeon', fontSize: '36px', color: '#FFD700', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5);
         main.add([bg, title]);
 
         let hitZones: Phaser.GameObjects.Rectangle[] = [];
@@ -517,7 +526,8 @@ export default class GameScene extends Phaser.Scene {
                 main.setPosition(gs.width / 2, gs.height / 2); 
                 bg.setSize(gs.width, gs.height); 
                 hitZones.forEach((hz, i) => {
-                    hz.setPosition(gs.width / 2, gs.height / 2 + (-70 + i * 125));
+                    let cy = -70 + (i * 125);
+                    hz.setPosition(gs.width / 2, gs.height / 2 + cy);
                 });
             }
         };
@@ -529,20 +539,35 @@ export default class GameScene extends Phaser.Scene {
         });
 
         let opts = this.getAvailableSkills();
+
         opts.forEach((opt, idx) => {
             let cur = opt.isConsumable ? 0 : (this.stats.skills[opt.key] || 0);
             let evo = !opt.isConsumable && cur >= 5 && opt.evo;
             let cardY = -70 + (idx * 125);
-            let cBg = this.add.graphics().fillStyle(evo ? 0xffa000 : 0x000000, 0.5).fillRoundedRect(-190, -55, 380, 110, 20).lineStyle(2, evo ? 0xFFD700 : 0xffffff, 0.4).strokeRoundedRect(-190, -55, 380, 110, 20);
-            let label = opt.isConsumable ? opt.title : (evo ? `[최종진화] ${opt.evo}` : `${opt.title} (Lv.${cur}->${cur + 1})`);
-            let card = this.add.container(0, cardY, [cBg, this.add.text(-105, -25, label, { fontFamily: 'OngleipParkDahyeon', fontSize: '24px', color: '#fff' }).setOrigin(0, 0.5), this.add.text(-105, 15, evo ? '궁극의 힘을 해방합니다!' : opt.desc, { fontFamily: 'OngleipParkDahyeon', fontSize: '16px', color: '#eee', wordWrap: { width: 280 } }).setOrigin(0, 0.5), this.add.text(-145, 0, opt.icon, { fontSize: '48px' }).setOrigin(0.5)]);
+            
+            let card = this.add.container(0, cardY);
+            let cBg = this.add.graphics().fillStyle(evo ? 0xffa000 : 0x000000, 0.5).fillRoundedRect(-190, -55, 380, 110, 20).lineStyle(2, evo ? 0xFF9800 : 0xffffff, 0.6).strokeRoundedRect(-190, -55, 380, 110, 20);
+            let labelText = this.add.text(-105, -25, opt.isConsumable ? opt.title : (evo ? `[최종진화] ${opt.evo}` : `${opt.title} (Lv.${cur}->${cur + 1})`), { fontFamily: 'OngleipParkDahyeon', fontSize: '24px', color: evo ? '#FFD700' : '#fff', fontStyle: 'bold' }).setOrigin(0, 0.5);
+            let descText = this.add.text(-105, 15, evo ? '궁극의 힘을 해방합니다!' : opt.desc, { fontFamily: 'OngleipParkDahyeon', fontSize: '16px', color: '#eee', wordWrap: { width: 280 } }).setOrigin(0, 0.5);
+            let iconText = this.add.text(-145, 0, opt.icon, { fontSize: '48px' }).setOrigin(0.5);
+            
+            card.add([cBg, labelText, descText, iconText]);
             main.add(card);
             
-            let hit = this.add.rectangle(cam.centerX, cam.centerY + cardY, 380, 110, 0, 0.01)
+            // 🎯 히트 영역을 씬에 직접 추가 (컨테이너 버그 방지)
+            let hit = this.add.rectangle(cam.centerX, cam.centerY + cardY, 380, 110, 0, 0.001)
                 .setDepth(2001).setScrollFactor(0).setInteractive({ useHandCursor: true });
             hitZones.push(hit);
 
-            hit.on('pointerdown', () => { 
+            hit.on('pointerover', () => { 
+                cBg.clear().fillStyle(evo ? 0xffb300 : 0x3182F6, 0.7).fillRoundedRect(-190, -55, 380, 110, 20).lineStyle(3, 0xffffff, 0.8).strokeRoundedRect(-190, -55, 380, 110, 20); 
+            });
+            hit.on('pointerout', () => { 
+                cBg.clear().fillStyle(evo ? 0xffa000 : 0x000000, 0.5).fillRoundedRect(-190, -55, 380, 110, 20).lineStyle(2, evo ? 0xFF9800 : 0xffffff, 0.4).strokeRoundedRect(-190, -55, 380, 110, 20); 
+            });
+
+            hit.on('pointerdown', () => {
+                console.log('Skill selected:', opt.key);
                 if (evo) SFX.evo(); else SFX.meow(); 
                 this.applySkill(opt.key, evo, opt.isConsumable); 
                 this.scale.off('resize', onResize); 
